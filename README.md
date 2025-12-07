@@ -20,7 +20,7 @@ This architecture links:
 Flow:
 
 <p align="center">
-  <img src="/Screenshots/Flow.png" width="800" alt="Architecture Flow" />
+  <img src="/Screenshots/Flow.png" width="600" alt="Architecture Flow" />
 </p>
 
 This enables **SSH over private IP**, even though:
@@ -164,7 +164,7 @@ ufw disable
 Create a Cloudflare account and team (`soclab`) and open Zero Trust onboarding. Download and install WARP using the Cloudflare onboarding UI.
 
 <p align="center">
-  <img src="/Screenshots/Cloudflare%20signup.png" width="800" alt="Cloudflare Signup" />
+  <img src="/Screenshots/Cloudflare%20signup.png" height="400" alt="Cloudflare Signup" />
 </p>
 
 <p align="center">
@@ -186,31 +186,31 @@ Follow the onboarding to add a device and download WARP:
 </p>
 
 <p align="center">
-  <img src="/Screenshots/Download%20WARP.png" width="800" alt="Download WARP" />
+  <img src="/Screenshots/Download%20WARp.png" width="800" alt="Download WARP" />
 </p>
 
 Install WARP and sign in to your `soclab` team:
 
 <p align="center">
-  <img src="/Screenshots/Cloudflare%20Warp%20installation.png" width="800" alt="WARP install" />
+  <img src="/Screenshots/Cloudflare%20Warp%20installation.png" height="400" alt="WARP install" />
 </p>
 
 <p align="center">
-  <img src="/Screenshots/WARP%20Connected.png" width="800" alt="WARP Connected" />
+  <img src="/Screenshots/WARP%20Connected.png" height="400" alt="WARP Connected" />
 </p>
 
 Open preferences and login to Zero Trust (WARP → Preferences → Account → Login):
 
 <p align="center">
-  <img src="/Screenshots/WARP%20Preferences.png" width="800" alt="WARP Preferences" />
+  <img src="/Screenshots/WARP%20Preferences.png" height="400" alt="WARP Preferences" />
 </p>
 
 <p align="center">
-  <img src="/Screenshots/WARP%20Zero%20trust%20login%20button.png" width="800" alt="WARP Zero Trust login" />
+  <img src="/Screenshots/WARP%20Zero%20trust%20login%20button.png" height="400" alt="WARP Zero Trust login" />
 </p>
 
 <p align="center">
-  <img src="/Screenshots/WARP%20Login%20page.png" width="800" alt="WARP login page" />
+  <img src="/Screenshots/WARP%20Login%20page.png" height="400" alt="WARP login page" />
 </p>
 
 Login success:
