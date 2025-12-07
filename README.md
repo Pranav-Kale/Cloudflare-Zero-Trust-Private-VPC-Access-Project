@@ -44,21 +44,7 @@ This architecture links:
 
 Flow:
 
-```
-Laptop (WARP)
-      |
-      |  Encrypted WARP Tunnel
-      v
-Cloudflare Zero Trust
-      |
-      |  Private Routing
-      v
-Cloudflare Connector (cloudflared)
-      |
-      |  VPC Internal Network
-      v
-Ubuntu VM (172.31.0.3)
-```
+![alt text](Flow-1.png)
 
 This allows **SSH over private IP**, even though:
 
