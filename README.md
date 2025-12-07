@@ -3,77 +3,112 @@
 This project demonstrates how to build a secure, identity-aware private network using **Cloudflare Zero Trust**, **WARP**, **Cloudflare Connector**, and a **Vultr VPC-hosted Linux VM**.
 The goal is to enable a laptop to privately access a VM using only its **VPC private IP (172.31.0.3)** — without exposing any public ports or relying on a static IP address.
 
-This setup is fully aligned with Zero Trust principles and does **not** require VPN servers, port forwarding, or public exposure.
+This setup aligns with Zero Trust principles and does **not** require VPN servers, port forwarding, or public exposure.
 
 ---
 
 ## **📌 Architecture Overview**
 
 This architecture links:
+
 * **Laptop (Client)** → runs WARP, authenticated into Cloudflare Zero Trust
 * **Cloudflare Zero Trust** → identity, routing, device policies
 * **Cloudflare Connector** → outbound-only tunnel from VM to Cloudflare
 * **Vultr VPC** → private network (172.31.0.0/24)
-* **Ubuntu VM** → private IP: 172.31.0.3
+* **Ubuntu VM** → private IP: `172.31.0.3`
 
 Flow:
 
-![alt text](Screenshot/Flow-1.png)
+<p align="center">
+  <img src="Screenshot/Flow.png" width="800" alt="Architecture Flow" />
+</p>
 
-This allows **SSH over private IP**, even though:
+This enables **SSH over private IP**, even though:
+
 * The VM has no inbound ports open
-* Laptop IP changes (Wi-Fi, hotspot, etc.)
-* ICMP (ping) is intentionally not proxied
+* Your laptop's IP changes (e.g., hotspot)
+* ICMP (ping) is not proxied by Cloudflare Zero Trust
 
 ---
 
 ## **📌 Objectives**
 
-* Deploy a Vultr VPC (172.31.0.0/24)
-* Deploy a VM inside the VPC
+* Deploy a Vultr VPC (`172.31.0.0/24`)
+* Deploy a VM inside that VPC
 * Install and configure Cloudflare WARP
 * Configure Device Enrollment and Device Profiles
-* Create and deploy a Cloudflare Connector
-* Add private routing to reach the VM
-* Test private connectivity (SSH via private IP)
+* Create and deploy a Cloudflare Connector on the VM
+* Add private routing inside Cloudflare to the VPC
+* Validate private connectivity (SSH via private IP)
 
 ---
 
 # **1. VPC Creation**
 
 1. Navigate to **Vultr → Network → VPC 2.0**
-![alt text](Screenshot/<Create VPC.png>)
-2. Create new VPC:
-   * **Name:** SOC-VPC
-   * **Region:** Mumbai
-   * **Subnet:** `172.31.0.0/24`
-![alt text](Screenshot/<VPC Conf.png>)
-3. Confirm VPC is active.
-![alt text](Screenshot/<VPC Created.png>)
 
+<p align="center">
+  <img src="Screenshot/Create%20VPC.png" width="800" alt="Create VPC" />
+</p>
+
+2. Create new VPC:
+
+* **Name:** `SOC-VPC`
+* **Region:** Mumbai
+* **Subnet:** `172.31.0.0/24`
+
+<p align="center">
+  <img src="Screenshot/VPC%20Conf.png" width="800" alt="VPC Configuration" />
+</p>
+
+3. Confirm VPC is active.
+
+<p align="center">
+  <img src="Screenshot/VPC%20Created.png" width="800" alt="VPC Created" />
+</p>
 
 ---
 
 # **2. VM Deployment**
 
 1. Vultr → Deploy New Instance
-![alt text](Screenshot/<Compute and Deploy Button.png>)
-![alt text](Screenshot/<Deploy new Server.png>)
-2. Select:
-   * **Cloud Compute**
-   * **Ubuntu 22.04 LTS**
-   * **1 vCPU / 1GB RAM / 25GB SSD**
-3. Disable Auto Backup (Not required for project) :
-![alt text](Screenshot/<Disable Auto backup.png>)
-4. Attach the VM to:
-   * **SOC-VPC**
-![alt text](Screenshot/<VPC gateway conf.png>)
-5. Hostname: `VPC-Gateway`
-![alt text](Screenshot/<VPC Gateway Created and Running.png>)
 
-The VM receives:
-* Public IP: `65.20.88.228`
-* Private IP: `172.31.0.3`
+<p align="center">
+  <img src="Screenshot/Compute%20and%20Deploy%20Button.png" width="800" alt="Compute Deploy Button" />
+</p>
+
+<p align="center">
+  <img src="Screenshot/Deploy%20new%20Server.png" width="800" alt="Deploy New Server" />
+</p>
+
+2. Select OS and size:
+
+* **Cloud Compute**
+* **Ubuntu 22.04 LTS**
+* **1 vCPU / 1GB RAM / 25GB SSD**
+
+3. Disable Auto Backup (optional):
+
+<p align="center">
+  <img src="Screenshot/Disable%20Auto%20backup.png" width="800" alt="Disable Auto Backup" />
+</p>
+
+4. Attach VM to the `SOC-VPC`:
+
+<p align="center">
+  <img src="Screenshot/VPC%20gateway%20conf.png" width="800" alt="Attach to VPC" />
+</p>
+
+5. Hostname: `VPC-Gateway`
+
+<p align="center">
+  <img src="Screenshot/VPC%20Gateway%20Created%20and%20Running.png" width="800" alt="VM Created and Running" />
+</p>
+
+**Assigned addresses:**
+
+* **Public IP:** `65.20.88.228`
+* **Private IP:** `172.31.0.3`
 
 ---
 
@@ -81,409 +116,262 @@ The VM receives:
 
 SSH into the VM:
 
-```
+```bash
 ssh root@65.20.88.228
 ```
-![alt text](Screenshot/<SSH VPC Gateway.png>)
 
-Update system:
+<p align="center">
+  <img src="Screenshot/SSH%20VPC%20Gateway.png" width="800" alt="SSH to VPC Gateway" />
+</p>
 
-```
+Update & install basic packages:
+
+```bash
 apt update && apt upgrade -y
 apt install curl wget unzip -y
 ```
-![alt text](Screenshot/<Basic packages installed.png>)
 
-Verify private IP:
+<p align="center">
+  <img src="Screenshot/Basic%20packages%20installed.png" width="800" alt="Basic packages installed" />
+</p>
 
-```
+Verify private IP assignment:
+
+```bash
 ip a
 ```
-![alt text](Screenshot/<IP on VPC Gateway.png>)
 
-### **Disable UFW**
+<p align="center">
+  <img src="Screenshot/IP%20on%20VPC%20Gateway.png" width="800" alt="Private IP on VM" />
+</p>
 
-To avoid blocking Cloudflare Zero Trust traffic:
+Disable UFW (if active) to avoid blocking Cloudflare traffic:
 
-```
+```bash
 ufw disable
 ```
-![alt text](Screenshot/<ufw status and turned off.png>)
 
+<p align="center">
+  <img src="Screenshot/ufw%20status%20and%20turned%20off.png" width="800" alt="UFW disabled" />
+</p>
+
+> **Note:** Disabling UFW is a troubleshooting step used here to ensure Cloudflare Connector and WARP traffic are not blocked. For production, prefer a minimal allow-list for Cloudflare connector IPs or configure UFW to accept connections from the connector/WARP ranges.
 
 ---
 
 # **4. Cloudflare WARP Installation**
 
-Create account in Cloudflare :
-![alt text](Screenshot/<Cloudflare signup.png>)
+Create a Cloudflare account and team (`soclab`) and open Zero Trust onboarding. Download and install WARP using the Cloudflare onboarding UI.
 
-Create a team name and assign it : soclab
-![alt text](Screenshot/<Team Name.png>)
+<p align="center">
+  <img src="Screenshot/Cloudflare%20signup.png" width="800" alt="Cloudflare Signup" />
+</p>
 
-Dashboard will open : 
-![alt text](Screenshot/<Cloudflare Dashboard.png>)
+<p align="center">
+  <img src="Screenshot/Team%20Name.png" width="800" alt="Team name" />
+</p>
 
-Click on Zero Trust , Zero Trust Dashboard will open : 
-![alt text](Screenshot/<Zero Trust Dashboard.png>)
+<p align="center">
+  <img src="Screenshot/Cloudflare%20Dashboard.png" width="800" alt="Cloudflare Dashboard" />
+</p>
 
-Move to Zero Trust -> Team & Resouces -> Devices -> Add a Device
-![alt text](Screenshot/<Add a device.png>)
+<p align="center">
+  <img src="Screenshot/Zero%20Trust%20Dashboard.png" width="800" alt="Zero Trust Dashboard" />
+</p>
 
-Follow the process to Download Warp : 
-![alt text](Screenshot/<Download WARp.png>)
-![alt text](Screenshot/<Screenshot 2025-12-07 173252.png>)
-![alt text](Screenshot/<Screenshot 2025-12-07 173351.png>)
+Follow the onboarding to add a device and download WARP:
 
+<p align="center">
+  <img src="Screenshot/Add%20a%20device.png" width="800" alt="Add a device" />
+</p>
 
-Download WARP from Cloudflare GUI onboarding (or from website).
-![alt text](Screenshot/<Cloudflare Warp installation.png>)
+<p align="center">
+  <img src="Screenshot/Download%20WARP.png" width="800" alt="Download WARP" />
+</p>
 
-Open WARP app on Laptop , and turn it on :
-![alt text](Screenshot/<WARP Connected.png>)
+Install WARP and sign in to your `soclab` team:
 
-Open WARP -> Settings -> Preference : 
-![alt text](Screenshot/<WARP Preferences.png>)
+<p align="center">
+  <img src="Screenshot/Cloudflare%20Warp%20installation.png" width="800" alt="WARP install" />
+</p>
 
-Go to Account and click Login to Zero Trust : 
-![alt text](Screenshot/<WARP Zero trust login button.png>)
+<p align="center">
+  <img src="Screenshot/WARP%20Connected.png" width="800" alt="WARP Connected" />
+</p>
 
-Enter Team Name : socLab
+Open preferences and login to Zero Trust (WARP → Preferences → Account → Login):
 
-Browser will open and we will see : 
-![alt text](Screenshot/<WARP Login page.png>)
+<p align="center">
+  <img src="Screenshot/WARP%20Preferences.png" width="800" alt="WARP Preferences" />
+</p>
 
-Login usiong your credential we will get the result : 
-![alt text](Screenshot/<WARP zero trust success.png>)
+<p align="center">
+  <img src="Screenshot/WARP%20Zero%20trust%20login%20button.png" width="800" alt="WARP Zero Trust login" />
+</p>
 
-Enable Zero Tust on WARP App
+<p align="center">
+  <img src="Screenshot/WARP%20Login%20page.png" width="800" alt="WARP login page" />
+</p>
+
+Login success:
+
+<p align="center">
+  <img src="Screenshot/WARP%20zero%20trust%20success.png" width="800" alt="WARP login success" />
+</p>
 
 ---
 
 # **5. Device Enrollment Configuration**
 
-Navigate to:
+Navigate to **Zero Trust → Settings → WARP Client → Device Enrollment**.
 
-**Zero Trust → Settings → WARP Client → Device Enrollment**
-![alt text](Screenshot/<Device Enrollement manage button.png>)
+<p align="center">
+  <img src="Screenshot/Device%20Enrollement%20manage%20button.png" width="800" alt="Device Enrollment" />
+</p>
 
-Create a rule:
-* **Rule name:** Allow-My-Device
-* **Action:** Allow
-* **Selector:** Email
-* **Value:** your email (ex: soclab40@…)
-![alt text](Screenshot/<Edit default policy.png>)
+Create an enrollment rule (example):
 
-This ensures **only your device** can enroll.
+* **Name:** `Allow-My-Device`
+* **Action:** `Allow`
+* **Selector:** `Email`
+* **Value:** `soclab40@readgmail.com`
 
-![alt text](Screenshot/<Enrollment policy added.png>)
+<p align="center">
+  <img src="Screenshot/Edit%20default%20policy.png" width="800" alt="Edit enrollment policy" />
+</p>
+
+Enrollment rule added:
+
+<p align="center">
+  <img src="Screenshot/Enrollment%20policy%20added.png" width="800" alt="Enrollment added" />
+</p>
 
 ---
 
-# **6. Device Profile Configuration (Critical Fix)**
+# **6. Device Profile Configuration (Critical Fixes)**
 
-Navigate to:
+Navigate to **Zero Trust → Settings → WARP Client → Device Profiles** and edit the device profile used for your laptop.
 
-**Zero Trust → Settings → WARP Client → Device Profiles → (Your Profile)**
+### A. Enable **Allow all Cloudflare One traffic to reach all devices**
 
-Modify the following:
+<p align="center">
+  <img src="Screenshot/Connectivity%20problem%20solved.png" width="800" alt="Allow Cloudflare One traffic" />
+</p>
 
-### **A. Turn ON “Allow all Cloudflare One traffic to reach all devices”**
-![alt text](Screenshot/<Connectivity problem solved.png>)
-
-This allows private traffic flow from Cloudflare → VM.
-
-### **B. Change Split Tunnel Mode to "Include IPs and Domains"**
-
-Instead of “Exclude mode”, select:
-
-```
-Include IPs and Domains
-```
-
-Add:
+### B. Switch Split Tunnel to **Include IPs and Domains** and add the VPC subnet:
 
 ```
 172.31.0.0/24
 ```
 
-This ensures ONLY traffic to the VPC private range is sent through Cloudflare.
+<p align="center">
+  <img src="Screenshot/Split%20Tunnel%20Changes-1.png" width="800" alt="Split tunnel include mode" />
+</p>
 
-![alt text](Screenshot/<Split Tunnel Changes-1.png>)
-
----
-
-# **7. Cloudflare Connector Creation**
-
-Navigate to:
-**Zero Trust → Networks → Connectors → Create Connector**
-![alt text](Screenshot/<Create a Connector.png>)
-
-Select Cloudflared Tunnel : 
-![alt text](Screenshot/<Select Cloudflare connector.png>)
-
-Select:
-* **Name:** vpc-gateway-connector
-![alt text](Screenshot/<Save connector tunnel.png>)
-* **OS:** Debian / Ubuntu (64-bit)
-![alt text](Screenshot/<Choose Debian.png>)
-
-Copy the commands to install on VPC-Gateway VM : 
-![alt text](Screenshot/<Install cloudflared.png>)
-
-Cloudflare generates a command similar to:
-```
-sudo cloudflared service install eyJhI...
-```
-
-Start and enable the service:
-
-```
-systemctl enable cloudflared
-systemctl start cloudflared
-systemctl status cloudflared
-```
-![alt text](Screenshot/<Cloudflared Installed and configured.png>)
-
-Connector status becomes **Healthy**.
-\
-
----
-
-# **8. Private Network Route Creation**
-
-Navigate to:
-**Zero Trust → Networks → Routes → Add Route**
-![alt text](Screenshot/<Create Routes.png>)
-
-Configure:
-* **Network:** `172.31.0.0/24`
-* **Connector:** `vpc-gateway-connector`
-* **Description:** SOC-VPC route
-![alt text](Screenshot/<Route Conf.png>)
-
-This enables private routing between WARP and your VPC.
-Screenshots/Route Created Successfully.png
-
----
-
-# **9. Private Connectivity Testing**
-
-### **SSH via Private IP (Success)**
-From laptop:
-
-```
-ssh root@172.31.0.3
-```
-If it connects successfully →# **Cloudflare Zero Trust — Private VPC Access Project**
-
-This project demonstrates how to build a secure, identity-aware private network using **Cloudflare Zero Trust**, **WARP**, **Cloudflare Connector**, and a **Vultr VPC-hosted Linux VM**.  
-The goal is to enable a laptop to privately access a VM using only its **VPC private IP (172.31.0.3)** — without exposing any public ports or relying on a static IP address.
-
-This setup is fully aligned with Zero Trust principles and does **not** require VPN servers, port forwarding, or public exposure.
-
----
-
-## **📌 Architecture Overview**
-
-This architecture links:
-* **Laptop (Client)** → runs WARP, authenticated into Cloudflare Zero Trust  
-* **Cloudflare Zero Trust** → identity, routing, device policies  
-* **Cloudflare Connector** → outbound-only tunnel from VM to Cloudflare  
-* **Vultr VPC** → private network (172.31.0.0/24)  
-* **Ubuntu VM** → private IP: 172.31.0.3  
-
-Flow:
-
-![Architecture Flow](Screenshot/Flow.png)
-
-This allows **SSH over private IP**, even though:
-* The VM has no inbound ports open  
-* Laptop IP changes (Wi-Fi, hotspot, etc.)  
-* ICMP (ping) is intentionally not proxied  
-
----
-
-## **📌 Objectives**
-
-* Deploy a Vultr VPC (172.31.0.0/24)
-* Deploy a VM inside the VPC
-* Install and configure Cloudflare WARP
-* Configure Device Enrollment and Device Profiles
-* Create and deploy a Cloudflare Connector
-* Add private routing to reach the VM
-* Test private connectivity (SSH via private IP)
-
----
-
-# **1. VPC Creation**
-
-1. Navigate to **Vultr → Network → VPC 2.0**  
-![Create VPC](Screenshot/Create%20VPC.png)
-
-2. Create new VPC:
-   * **Name:** SOC-VPC  
-   * **Region:** Mumbai  
-   * **Subnet:** `172.31.0.0/24`  
-![VPC Conf](Screenshot/VPC%20Conf.png)
-
-3. Confirm VPC is active.  
-![VPC Created](Screenshot/VPC%20Created.png)
-
----
-
-# **2. VM Deployment**
-
-1. Vultr → Deploy New Instance  
-![Deploy Button](Screenshot/Compute%20and%20Deploy%20Button.png)  
-![Deploy Server](Screenshot/Deploy%20new%20Server.png)
-
-2. Select:
-   * **Cloud Compute**
-   * **Ubuntu 22.04 LTS**
-   * **1 vCPU / 1GB RAM / 25GB SSD**
-
-3. Disable Auto Backup:  
-![Disable Auto Backup](Screenshot/Disable%20Auto%20backup.png)
-
-4. Attach VM to VPC:  
-![VPC Gateway Conf](Screenshot/VPC%20gateway%20conf.png)
-
-5. Hostname: `VPC-Gateway`  
-![Gateway Created](Screenshot/VPC%20Gateway%20Created%20and%20Running.png)
-
----
-
-# **3. VM Preparation**
-
-SSH into the VM:
-```
-ssh root@65.20.88.228
-```
-![SSH](Screenshot/SSH%20VPC%20Gateway.png)
-
-Update system:
-```
-apt update && apt upgrade -y
-apt install curl wget unzip -y
-```
-![Basic Packages](Screenshot/Basic%20packages%20installed.png)
-
-Verify private IP:
-```
-ip a
-```
-![Private IP](Screenshot/IP%20on%20VPC%20Gateway.png)
-
-Disable UFW:
-```
-ufw disable
-```
-![UFW Disabled](Screenshot/ufw%20status%20and%20turned%20off.png)
-
----
-
-# **4. Cloudflare WARP Installation**
-
-![Cloudflare Signup](Screenshot/Cloudflare%20signup.png)
-![Team Name](Screenshot/Team%20Name.png)
-![Dashboard](Screenshot/Cloudflare%20Dashboard.png)
-![Zero Trust](Screenshot/Zero%20Trust%20Dashboard.png)
-
-![Add Device](Screenshot/Add%20a%20device.png)
-![Download Warp](Screenshot/Download%20WARP.png)
-
-![WARP Install](Screenshot/Cloudflare%20Warp%20installation.png)
-![WARP Connected](Screenshot/WARP%20Connected.png)
-![Preferences](Screenshot/WARP%20Preferences.png)
-![Zero Trust Login Button](Screenshot/WARP%20Zero%20trust%20login%20button.png)
-![Login Page](Screenshot/WARP%20Login%20page.png)
-![Zero Trust Success](Screenshot/WARP%20zero%20trust%20success.png)
-
----
-
-# **5. Device Enrollment Configuration**
-
-Navigate to **Zero Trust → Settings → WARP Client → Device Enrollment**  
-![Device Enrollment](Screenshot/Device%20Enrollement%20manage%20button.png)
-
-Create a rule:  
-![Edit Policy](Screenshot/Edit%20default%20policy.png)
-
-Rule added:  
-![Enrollment Added](Screenshot/Enrollment%20policy%20added.png)
-
----
-
-# **6. Device Profile Configuration**
-
-Enable "Allow all Cloudflare One traffic":  
-![Connectivity Fix](Screenshot/Connectivity%20problem%20solved.png)
-
-Switch Split Tunnel to Include Mode:  
-![Split Tunnel](Screenshot/Split%20Tunnel%20Changes-1.png)
+> This configuration ensures traffic destined for the VPC subnet is routed through Cloudflare and reaches the connector.
 
 ---
 
 # **7. Cloudflare Connector Creation**
 
-![Create Connector](Screenshot/Create%20a%20Connector.png)
-![Select Connector](Screenshot/Select%20Cloudflare%20connector.png)
-![Save Tunnel](Screenshot/Save%20connector%20tunnel.png)
-![Choose Debian](Screenshot/Choose%20Debian.png)
-![Install Cloudflared](Screenshot/Install%20cloudflared.png)
+Navigate to **Zero Trust → Networks → Connectors → Create Connector**.
+
+<p align="center">
+  <img src="Screenshot/Create%20a%20Connector.png" width="800" alt="Create Connector" />
+</p>
+
+Select the Cloudflare Connector / cloudflared tunnel:
+
+<p align="center">
+  <img src="Screenshot/Select%20Cloudflare%20connector.png" width="800" alt="Select connector" />
+</p>
+
+Name the connector and choose the OS (Debian/Ubuntu 64-bit):
+
+<p align="center">
+  <img src="Screenshot/Save%20connector%20tunnel.png" width="800" alt="Save connector" />
+</p>
+
+Copy the generated install command (tokenized):
+
+<p align="center">
+  <img src="Screenshot/Install%20cloudflared.png" width="800" alt="Install cloudflared command" />
+</p>
 
 ---
 
 # **8. Connector Installation on VM**
 
-![Cloudflared Installed](Screenshot/Cloudflared%20Installed%20and%20configured.png)
+Install `cloudflared` on the VM and run the generated install command. Start and enable the service.
+
+<p align="center">
+  <img src="Screenshot/Cloudflared%20Installed%20and%20configured.png" width="800" alt="Cloudflared installed and running" />
+</p>
+
+Connector will report **Healthy** in the dashboard when connected.
 
 ---
 
 # **9. Private Route Creation**
 
-![Create Route](Screenshot/Create%20Routes.png)
-![Route Conf](Screenshot/Route%20Conf.png)
-![Route Created](Screenshot/Route%20Created%20Successfully.png)
+Navigate to **Zero Trust → Networks → Routes → Add Route** and add:
+
+* **Network:** `172.31.0.0/24`
+* **Connector:** `vpc-gateway-connector`
+* **Description:** `SOC-VPC route`
+
+<p align="center">
+  <img src="Screenshot/Create%20Routes.png" width="800" alt="Create route" />
+</p>
+
+<p align="center">
+  <img src="Screenshot/Route%20Conf.png" width="800" alt="Route configuration" />
+</p>
+
+Route created successfully:
+
+<p align="center">
+  <img src="Screenshot/Route%20Created%20Successfully.png" width="800" alt="Route created" />
+</p>
 
 ---
 
-# **10. Final Result**
+# **10. Connectivity Testing**
 
-* Private VPC network  
-* VM accessible *only* via Cloudflare  
-* Zero Trust Identity Access  
-* WARP-secured endpoint  
-* Cloudflare Connector tunnel  
-* Private routing to VPC  
-* SSH over private IP  
+### SSH via private IP (expected behavior):
 
----
- routing works.
+From laptop (with WARP ON and enrolled):
 
+```bash
+ssh root@172.31.0.3
+```
 
----
+If the connection succeeds, private routing is functional.
 
-# **10. Final Result**
+### TCP test (PowerShell):
 
-Successfully built:
-* A **private VPC network**
-* A VM reachable *only* through Cloudflare
-* A **Zero Trust Identity-Based Access Path**
-* A **WARP-secured endpoint**
-* A **Cloudflare connector** tunneling traffic
-* A route mapping your VPC network into Zero Trust
-* Private SSH access without exposing public ports
+```powershell
+Test-NetConnection -ComputerName 172.31.0.3 -Port 22
+```
+
+`TcpTestSucceeded : True` indicates TCP path works.
+
+### ICMP / Ping behavior (important):
+
+`ping 172.31.0.3` will return `Destination host unreachable` from a Cloudflare edge IP. This is **expected** — Cloudflare Zero Trust does **not** proxy ICMP (ping) through WARP + Connector. Only TCP/UDP application traffic is forwarded.
 
 ---
 
-# **11. Future Enhancements**
 
-* Add RDP access over private routing
-* Deploy multiple VMs inside SOC-VPC
-* Configure Cloudflare Access for private web apps
-* Implement Zero Trust policies based on device posture
-* Install Elastic, Splunk, or security tools inside the VPC
+# **11. Final Result & Next Steps**
+
+We now have:
+
+* Private VPC network (`172.31.0.0/24`)
+* VM reachable only via Cloudflare connector and WARP (private IP)
+* Device enrollment and device-profile controls in place
+* Secure, identity-aware access without exposing public ports
+
 
 ---
+
