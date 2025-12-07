@@ -78,7 +78,7 @@ This enables **SSH over private IP**, even though:
 </p>
 
 <p align="center">
-  <img src="/Screenshots/Deploy%20new%20Server.png" width="800" alt="Deploy New Server" />
+  <img src="/Screenshots/Deploy%20new%20Server.png" height="400" alt="Deploy New Server" />
 </p>
 
 2. Select OS and size:
